@@ -33,7 +33,7 @@
 
 #include "distorm.h"
 #include "fnmock.h"
-#include "cky.h"
+#include "traits.h"
 
 #if defined(WIN32)
 #include <windows.h>
@@ -75,11 +75,11 @@ public:
         m_mocked_func = NULL;
         m_return_data = NULL;
 
-        if(cky::is_class<ReturnType>::value)
+        if(ufmock::is_class<ReturnType>::value)
             m_return_type = E_TYPE_STRUCT;
-        else if(cky::is_float<ReturnType>::value)
+        else if(ufmock::is_float<ReturnType>::value)
             m_return_type = E_TYPE_FLOAT;
-        else if(cky::is_reference<ReturnType>::value)
+        else if(ufmock::is_reference<ReturnType>::value)
             m_return_type = E_TYPE_REFERENCE;
         else 
             m_return_type = E_TYPE_INTEGER;
