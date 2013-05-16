@@ -1,6 +1,26 @@
-TARGET = mocktest
-$(TARGET) : src/fnmock.cpp src/mocktest.cpp
-	g++ -Wall -g -o $@ $^ -DLINUX -Iinclude -Isrc lib/distorm.a
 
+SRCDIR = ./src
+LIBDIR = ./lib
+OBJDIR = .
+BINDIR = .
+
+SRCS = $(SRCDIR)/fnmock.cpp \
+	$(SRCDIR)/mocktest.cpp
+
+OBJS = $(addsuffix .o,$(addprefix ,$(basename $(SRCS))))
+
+TARGET = $(BINDIR)/mocktest
+
+CC = g++
+INCLUDE = -I./include -I$(SRCDIR)
+LIBS = $(LIBDIR)/distorm64.a
+CXXFLAGS = -g -Wall -DLINUX
+
+$(TARGET) : $(OBJS)
+	$(CC) $(CXXFLAGS) -o $@ $^ $(INCLUDE) $(LIBS)
+
+$(OBJS): %.o: %.cpp
+	$(CC) -c $(CXXFLAGS) $< -o $@ $(INCLUDE)
+	
 clean :
-	rm -f $(TARGET)
+	rm -f $(TARGET) $(OBJS)
