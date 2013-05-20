@@ -124,7 +124,7 @@ private:
             DWORD old_protect = 0;
             VirtualProtect(p, CODE_BLOCK_SIZE, PAGE_EXECUTE_READ, &old_protect);
 #endif
-            distorm_decode64(0, p, CODE_BLOCK_SIZE, type, inst, MAX_INST_SIZE, &count);
+            distorm_decode(0, p, CODE_BLOCK_SIZE, type, inst, MAX_INST_SIZE, &count);
 #ifdef WIN32            
             VirtualProtect(p, CODE_BLOCK_SIZE, old_protect, &old_protect);
 #endif
