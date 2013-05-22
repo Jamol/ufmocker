@@ -139,7 +139,7 @@ private:
                     break;
                 }
                 else if(*p == 0xea)
-                {
+                {// Invalid Instruction in 64-Bit Mode
                     p = (unsigned char*)(*(unsigned int*)(p + 1));
                 }
                 else if(*p == 0xeb)
