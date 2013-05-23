@@ -157,6 +157,15 @@ private:
                     buf[0] = *p;
                     return 1;
                 }
+                else if(*p == 0xff && *(p + 1) >= 0xe0 && *(p + 1) <= 0xe7)
+                {// we cannot handle "jmp eax"
+                    return 0;
+                }
+                else if(*p == 0x41 && *(p + 1) == 0xff &&
+                    *(p + 2) >= 0xe0 && *(p + 2) <= 0xe7)
+                {// should be 64-Bit Mode, we cannot handle "jmp r8"
+                    return 0;
+                }
                 p += inst[index].size;
             }
         }
