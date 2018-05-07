@@ -37,12 +37,10 @@
 
 #if defined(WIN32)
 #include <windows.h>
-#elif defined(LINUX)
+#elif defined(LINUX) || defined(MACOS)
 #include <sys/mman.h>
 #include <unistd.h>
 #include <string.h>
-#elif defined(MACOS)
-#error "unsupport OS"
 #else
 #error "unsupport OS"
 #endif
@@ -70,19 +68,20 @@ private:
 public:
     UFMocker()
     {
-        m_orig_func = NULL;
+        m_orig_func = nullptr;
         m_alloc_size = 0;
-        m_mocked_func = NULL;
-        m_return_data = NULL;
+        m_mocked_func = nullptr;
+        m_return_data = nullptr;
 
-        if(ufmock::is_class<ReturnType>::value)
+        if(ufmock::is_class<ReturnType>::value) {
             m_return_type = E_TYPE_STRUCT;
-        else if(ufmock::is_float<ReturnType>::value)
+        } else if(ufmock::is_float<ReturnType>::value) {
             m_return_type = E_TYPE_FLOAT;
-        else if(ufmock::is_reference<ReturnType>::value)
+        } else if(ufmock::is_reference<ReturnType>::value) {
             m_return_type = E_TYPE_REFERENCE;
-        else 
+        } else {
             m_return_type = E_TYPE_INTEGER;
+        }
     }
 
     ~UFMocker()
@@ -93,18 +92,15 @@ public:
 private:
     void cleanup()
     {
-        if(NULL != m_mocked_func)
-        {
+        if(m_mocked_func) {
 #if defined(WIN32)
             free(m_mocked_func);
-#elif defined(LINUX)
+#elif defined(LINUX) || defined(MACOS)
             munmap(m_mocked_func, m_alloc_size);
-#elif defined(MACOS)
-#error "unsupport OS"
 #else
 #error "unsupport OS"
 #endif
-            m_mocked_func = NULL;
+            m_mocked_func = nullptr;
         }
     }
 
@@ -118,8 +114,7 @@ private:
         unsigned int count = 0;
         unsigned int scaned_length = 0;
         unsigned char* p = (unsigned char*)func;
-        while(scaned_length < MAX_SCAN_LENGTH)
-        {
+        while(scaned_length < MAX_SCAN_LENGTH) {
 #ifdef WIN32
             DWORD old_protect = 0;
             VirtualProtect(p, CODE_BLOCK_SIZE, PAGE_EXECUTE_READ, &old_protect);
@@ -128,42 +123,31 @@ private:
 #ifdef WIN32            
             VirtualProtect(p, CODE_BLOCK_SIZE, old_protect, &old_protect);
 #endif
-            int cur_len = 0; // fix distorm_decode64 decode incomplete issue
-            for(unsigned int index = 0; index < count && cur_len < 20; index++)
-            {
+            unsigned int cur_len = 0; // fix distorm_decode64 decode incomplete issue
+            for(unsigned int index = 0; index < count && cur_len < 20; index++) {
                 scaned_length += inst[index].size;
                 cur_len += inst[index].size;
-                if(*p == 0xe9)
-                {
+                if(*p == 0xe9) {
                     p += *(unsigned int*)(p + 1) + 5;
                     break;
-                }
-                else if(*p == 0xea)
-                {// Invalid Instruction in 64-Bit Mode
-                    p = (unsigned char*)(*(unsigned int*)(p + 1));
-                }
-                else if(*p == 0xeb)
-                {
+                } else if(*p == 0xea) {
+                    // Invalid Instruction in 64-Bit Mode
+                    p = (unsigned char*)(uintptr_t)(*(unsigned int*)(p + 1));
+                } else if(*p == 0xeb) {
                     p += *(unsigned char*)(p + 1) + 2;
                     break;
-                }
-                else if(*p == 0xc2 || *p == 0xca)
-                {
+                } else if(*p == 0xc2 || *p == 0xca) {
                     memcpy(buf, p, 3);
                     return 3;
-                }
-                else if(*p == 0xc3 || *p == 0xcb)
-                {
+                } else if(*p == 0xc3 || *p == 0xcb) {
                     buf[0] = *p;
                     return 1;
-                }
-                else if(*p == 0xff && *(p + 1) >= 0xe0 && *(p + 1) <= 0xe7)
-                {// we cannot handle "jmp eax"
+                } else if(*p == 0xff && *(p + 1) >= 0xe0 && *(p + 1) <= 0xe7) {
+                    // we cannot handle "jmp eax"
                     return 0;
-                }
-                else if(*p == 0x41 && *(p + 1) == 0xff &&
-                    *(p + 2) >= 0xe0 && *(p + 2) <= 0xe7)
-                {// should be 64-Bit Mode, we cannot handle "jmp r8"
+                } else if(*p == 0x41 && *(p + 1) == 0xff &&
+                    *(p + 2) >= 0xe0 && *(p + 2) <= 0xe7) {
+                    // should be 64-Bit Mode, we cannot handle "jmp r8"
                     return 0;
                 }
                 p += inst[index].size;
@@ -177,8 +161,7 @@ private:
         int idx = 0;
         unsigned char* p = (unsigned char*)m_mocked_func;
 
-        if(E_TYPE_INTEGER == m_return_type || E_TYPE_REFERENCE == m_return_type)
-        {
+        if(E_TYPE_INTEGER == m_return_type || E_TYPE_REFERENCE == m_return_type) {
             // mov eax, addr
             p[idx++] = 0xb8;
             *((void**)(p + idx)) = m_return_data;
@@ -188,8 +171,7 @@ private:
             p[idx++] = 0x8b;
             p[idx++] = 0x00;
 
-            if(sizeof(long long) == sizeof(ReturnType) && E_TYPE_REFERENCE != m_return_type)
-            {// long long 
+            if(sizeof(long long) == sizeof(ReturnType) && E_TYPE_REFERENCE != m_return_type) { // long long
                 // mov edx, addr
                 p[idx++] = 0xba;
                 *((void**)(p + idx)) = (unsigned char*)m_return_data + 4;
@@ -199,35 +181,26 @@ private:
                 p[idx++] = 0x8b;
                 p[idx++] = 0x12;
             }
-        }
-        else if(E_TYPE_FLOAT == m_return_type)
-        {
+        } else if(E_TYPE_FLOAT == m_return_type) {
             // mov eax, addr
             p[idx++] = 0xb8;
             *((void**)(p + idx)) = m_return_data;
             idx += sizeof(void*);
 
-            if(sizeof(float) == sizeof(ReturnType))
-            {// float
+            if(sizeof(float) == sizeof(ReturnType)) { // float
                 // fld qword ptr [eax]
                 p[idx++] = 0xd9;
                 p[idx++] = 0x00;
-            }
-            else if(sizeof(double) == sizeof(ReturnType))
-            {// double
+            } else if(sizeof(double) == sizeof(ReturnType)) { // double
                 // fld qword ptr [eax]
                 p[idx++] = 0xdd;
                 p[idx++] = 0x00;
-            }
-            else if(sizeof(long double) == sizeof(ReturnType))
-            {// long double, linux
+            } else if(sizeof(long double) == sizeof(ReturnType)) { // long double, linux
                 // fldt qword ptr [eax]
                 p[idx++] = 0xdb;
                 p[idx++] = 0x28;
             }
-        }
-        else if(E_TYPE_STRUCT == m_return_type)
-        {
+        } else if(E_TYPE_STRUCT == m_return_type) {
             p[idx++] = 0x55; // push ebp
             p[idx++] = 0x8b;
             p[idx++] = 0xec;
@@ -265,8 +238,7 @@ private:
 
         // ret
         int ret_len = getRetCode32(m_orig_func, p + idx);
-        if(0 == ret_len)
-        {
+        if(0 == ret_len) {
             return false;
         }
         idx += ret_len;
@@ -278,30 +250,24 @@ private:
         int idx = 0;
         unsigned char* p = (unsigned char*)m_mocked_func;
 
-        if(E_TYPE_INTEGER == m_return_type || E_TYPE_REFERENCE == m_return_type)
-        {
+        if(E_TYPE_INTEGER == m_return_type || E_TYPE_REFERENCE == m_return_type) {
             // mov rax, addr
             p[idx++] = 0x48;
             p[idx++] = 0xb8;
             *((void**)(p + idx)) = (void*)m_return_data;
             idx += sizeof(void*);
 
-            if(E_TYPE_REFERENCE == m_return_type || sizeof(ReturnType) == sizeof(void*))
-            {
+            if(E_TYPE_REFERENCE == m_return_type || sizeof(ReturnType) == sizeof(void*)) {
                 // mov (%rax), %rax
                 p[idx++] = 0x48;
                 p[idx++] = 0x8b;
                 p[idx++] = 0x00;
-            }
-            else
-            {// char, short, int
+            } else {// char, short, int
                 // mov eax, dword ptr [rax]
                 p[idx++] = 0x8b;
                 p[idx++] = 0x00;
             }
-        }
-        else if(E_TYPE_FLOAT == m_return_type)
-        {
+        } else if(E_TYPE_FLOAT == m_return_type) {
             // mov eax, addr
             p[idx++] = 0x48;
             p[idx++] = 0xb8;
@@ -320,31 +286,24 @@ private:
             p[idx++] = 0xdd;
             p[idx++] = 0x00;
             }*/
-            if(sizeof(float) == sizeof(ReturnType))
-            {// float
+            if(sizeof(float) == sizeof(ReturnType)) { // float
                 // movss %(rax), %xmm0
                 p[idx++] = 0xf3;
                 p[idx++] = 0x0f;
                 p[idx++] = 0x10;
                 p[idx++] = 0x00;
-            }
-            else if(sizeof(double) == sizeof(ReturnType))
-            {// double
+            } else if(sizeof(double) == sizeof(ReturnType)) { // double
                 // movsd %(rax), %xmm0
                 p[idx++] = 0xf2;
                 p[idx++] = 0x0f;
                 p[idx++] = 0x10;
                 p[idx++] = 0x00;
-            }
-            else if(sizeof(long double) == sizeof(ReturnType))
-            {// long double, linux
+            } else if(sizeof(long double) == sizeof(ReturnType)) { // long double, linux
                 // fldt qword ptr [eax]
                 p[idx++] = 0xdb;
                 p[idx++] = 0x28;
             }
-        }
-        else if(E_TYPE_STRUCT == m_return_type)
-        {
+        } else if(E_TYPE_STRUCT == m_return_type) {
             p[idx++] = 0x55; // push rbp
 
             // mov %rsp,%rbp
@@ -426,8 +385,7 @@ private:
 
         // ret
         int ret_len = getRetCode32(m_orig_func, p + idx);
-        if(0 == ret_len)
-        {
+        if(0 == ret_len) {
             return false;
         }
         idx += ret_len;
@@ -438,12 +396,12 @@ public:
     static int getPageSize()
     {
         static int s_page_size = 0;
-        if(0 == s_page_size)
-        {
+        if(0 == s_page_size) {
 #if defined(LINUX)
             s_page_size = sysconf(_SC_PAGE_SIZE);
-            if(-1 == s_page_size)
+            if(-1 == s_page_size) {
                 s_page_size = osBit64()?8192:4096;
+            }
 #else
             s_page_size = osBit64()?8192:4096;
 #endif
@@ -453,13 +411,13 @@ public:
 
     bool setReturnValue(ReturnType retValue)
     {
-        if(NULL == m_orig_func)
+        if(!m_orig_func) {
             return false;
+        }
 
-        if(E_TYPE_REFERENCE != m_return_type)
-            memcpy((unsigned char*)m_return_data, &retValue, sizeof(ReturnType));
-        else
-        {
+        if(E_TYPE_REFERENCE != m_return_type) {
+            memcpy((unsigned char*)m_return_data, (void*)&retValue, sizeof(ReturnType));
+        } else {
             void* v = &retValue;
             memcpy((unsigned char*)m_return_data, &v, sizeof(v));
         }
@@ -469,8 +427,7 @@ public:
 
     bool mock(void* func)
     {
-        if(NULL != m_orig_func)
-        {// already mocked
+        if(m_orig_func) { // already mocked
             return func == m_orig_func;
         }
 
@@ -482,25 +439,25 @@ public:
         m_mocked_func = malloc(sz); // VirtualAlloc(NULL, sz, MEM_COMMIT, PAGE_EXECUTE_READWRITE);
         DWORD old_protect = 0;
         VirtualProtect(m_mocked_func, MOCK_CODE_SIZE, PAGE_EXECUTE_READWRITE, &old_protect);
-#elif defined(LINUX)
+#elif defined(LINUX) || defined(MACOS)
         int page_size = getPageSize();
         sz = (sz + page_size - 1)/page_size*page_size;
         m_mocked_func = mmap(0, sz, PROT_EXEC | PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-#elif defined(MACOS)
 #else
+        return false;
 #endif
         m_alloc_size = sz;
         m_return_data = (unsigned char*)m_mocked_func + MOCK_CODE_SIZE; // align to 4 bytes
 
         bool ret;
-        if(osBit64())
+        if(osBit64()) {
             ret = genFunction64();
-        else
+        } else {
             ret = genFunction32();
-        if(!ret)
-        {
+        }
+        if(!ret) {
             printf("failed to generate function\n");
-            m_orig_func = NULL;
+            m_orig_func = nullptr;
             cleanup();
             return false;
         }
@@ -510,10 +467,9 @@ public:
 
     void unmock()
     {
-        if(NULL != m_orig_func)
-        {
+        if(m_orig_func) {
             fnUnmock(m_orig_func);
-            m_orig_func = NULL;
+            m_orig_func = nullptr;
         }
         cleanup();
     }

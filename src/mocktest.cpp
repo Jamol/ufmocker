@@ -41,7 +41,7 @@ T1 f2(char c, int i)
     t.c = 'o';
     t.l = 0x12345678;
     t.ll = 0x3333333355555555LL;
-    t.f = 1.38;
+    t.f = 1.38f;
     t.d = 2.53;
     t.p = (void*)990;
     return t;
@@ -60,7 +60,7 @@ C1 f5(char c, int i)
     t.c = 'o';
     t.l = 0x12345678;
     t.ll = 0x3333333355555555LL;
-    t.f = 1.38;
+    t.f = 1.38f;
     t.d = 2.53;
     t.p = (void*)990;
     return t;
@@ -73,7 +73,7 @@ C1* f6(char c, int i)
     t.c = 'o';
     t.l = 0x12345678;
     t.ll = 0x3333333355555555LL;
-    t.f = 1.38;
+    t.f = 1.38f;
     t.d = 2.53;
     t.p = (void*)990;
     return &t;
@@ -81,7 +81,7 @@ C1* f6(char c, int i)
 
 float ff(float f)
 {
-    return .8;
+    return .8f;
 }
 
 double fd()
@@ -97,17 +97,13 @@ long double fld()
 
 bool* fp_bool()
 {
-    bool b[10] = {0};
+    static bool b[10] = {0};
     return b;
 }
 
 int main(int argc, char** argv)
 {
-    int a, b = 5;
-    a = b++;
-    b = 5;
-    a = ++b;
-    printf("%d %d %d %d %d\n", sizeof(long), sizeof(long long), sizeof(void*), sizeof(double), sizeof(long double));
+    printf("%zd %zd %zd %zd %zd\n", sizeof(long), sizeof(long long), sizeof(void*), sizeof(double), sizeof(long double));
     UFMocker<int> fmi;
     fmi.mock((void*)f1);
     fmi.setReturnValue(2);
@@ -119,7 +115,7 @@ int main(int argc, char** argv)
     t.c = 'a';
     t.l = 0x22334455;
     t.ll = 0x1111111122222222LL;
-    t.f = 6.21;
+    t.f = 6.21f;
     t.d = 334.995;
     t.p = (void*)100;
     UFMocker<T1> fmt;
@@ -139,7 +135,7 @@ int main(int argc, char** argv)
     c.c = 'a';
     c.l = 0x55667788;
     c.ll = 0x7777777788888888LL;
-    c.f = 33.94;
+    c.f = 33.94f;
     c.d = 156.889;
     c.p = (void*)100;
     int sz = sizeof(c);

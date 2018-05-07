@@ -1,6 +1,6 @@
 
 SRCDIR = ./src
-LIBDIR = ./lib
+LIBDIR = ./libs/linux
 OBJDIR = .
 BINDIR = .
 

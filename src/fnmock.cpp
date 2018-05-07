@@ -31,12 +31,10 @@
 #include "fnmock.h"
 #if defined(WIN32)
 #include <windows.h>
-#elif defined(LINUX)
+#elif defined(LINUX) || defined(MACOS)
 #include <sys/mman.h>
 #include <unistd.h>
 #include <string.h>
-#elif defined(MACOS)
-#error "unsupport OS"
 #else
 #error "unsupport OS"
 #endif
@@ -59,8 +57,7 @@ MockData getMockData(void* func)
 {
     MockData mockData = {0};
     MockDataMap::iterator it = s_mockDataMap.find(func);
-    if(it != s_mockDataMap.end())
-    {
+    if(it != s_mockDataMap.end()) {
         return it->second;
     }
     return mockData;
@@ -74,12 +71,12 @@ bool osBit64()
 int getPageSize()
 {
     static int s_page_size = 0;
-    if(0 == s_page_size)
-    {    
+    if(0 == s_page_size) {
 #if defined(LINUX)
         s_page_size = sysconf(_SC_PAGE_SIZE);
-        if(-1 == s_page_size)
+        if(-1 == s_page_size) {
             s_page_size = osBit64()?8192:4096;
+        }
 #else
         s_page_size = osBit64()?8192:4096;
 #endif
@@ -90,48 +87,36 @@ int getPageSize()
 int fnMock(void* srcFunc, void* dstFunc)
 {
     MockData mockData = getMockData(srcFunc);
-    if(mockData.srcFunc != NULL)
-    {
-        if(mockData.dstFunc == dstFunc)
-        {
+    if(mockData.srcFunc) {
+        if(mockData.dstFunc == dstFunc) {
             return 0;
-        }
-        else
-        {
+        } else {
             fnUnmock(srcFunc);
         }
     }
-    int opSize = JMP_OPCODE_SIZE;
-    if(osBit64())
-        opSize = JMP64_OPCODE_SIZE;
+    int opSize = osBit64() ? JMP64_OPCODE_SIZE : JMP_OPCODE_SIZE;
 #if defined(WIN32)
     DWORD oldProtect = 0;
     VirtualProtect(srcFunc, opSize, PAGE_EXECUTE_READWRITE, &oldProtect);
-#elif defined(LINUX)
+#elif defined(LINUX) || defined(MACOS)
     int page_size = getPageSize();
-    char* pStart = (char *)((long)srcFunc / page_size * page_size);
-    int nPage = ((long)srcFunc + opSize - (long)pStart + page_size - 1) / page_size * page_size;
+    char* pStart = (char *)((uintptr_t)srcFunc / page_size * page_size);
+    size_t nPage = ((uintptr_t)srcFunc + opSize - (uintptr_t)pStart + page_size - 1) / page_size * page_size;
 
     int res = mprotect(pStart, nPage, PROT_WRITE | PROT_READ | PROT_EXEC);
-    if(0 != res)
-    {
+    if(0 != res) {
         return -1;
     }
-#elif defined(MACOS)
-#error "unsupport OS"
 #else
 #error "unsupport OS"
 #endif
     memcpy(mockData.code, srcFunc, opSize);
     unsigned char* p = (unsigned char*)srcFunc;
-    if(!osBit64())
-    {
+    if(!osBit64()) {
         void* offset = (void*)((unsigned char*)dstFunc - (unsigned char*)srcFunc - opSize);
         p[0] = 0xe9;
         *(void**)(p + 1) = offset;
-    }
-    else
-    {
+    } else {
         // mov rax, offset
         int idx = 0;
         p[idx++] = 0x48;
@@ -150,11 +135,13 @@ int fnMock(void* srcFunc, void* dstFunc)
 void fnUnmock(void* srcFunc)
 {
     MockData mockData = getMockData(srcFunc);
-    if(mockData.srcFunc == NULL)
+    if(!mockData.srcFunc) {
         return ;
+    }
     int opSize = JMP_OPCODE_SIZE;
-    if(osBit64())
+    if(osBit64()) {
         opSize = JMP64_OPCODE_SIZE;
+    }
     memcpy(srcFunc, mockData.code, opSize);
     s_mockDataMap.erase(srcFunc);
 }
